@@ -351,6 +351,12 @@ def upload_file():
     """Handles file uploads and triggers the trading algorithm."""
     if 'file' not in request.files:
         return jsonify({'error': 'No file part in the request'}), 400
+    
+     # 1. Get the price from the form (defaults to 7.0 if missing)
+    try:
+        base_price = float(request.form.get('initial_price', 7.0))
+    except ValueError:
+        base_price = 7.0
 
     file = request.files['file']
     if file.filename == '':
@@ -364,7 +370,7 @@ def upload_file():
 
         try:
             # Run the algorithm in a new thread
-            algo_thread = Thread(target=run_simulation_and_notify, args=(filepath, current_user.id))
+            algo_thread = Thread(target=run_simulation_and_notify, args=(filepath, current_user.id, base_price))
             algo_thread.start()
         except Exception as e:
             print(f"Error starting algorithm thread: {e}")
@@ -373,7 +379,7 @@ def upload_file():
         return jsonify({'success': f'File {filename} uploaded. Processing... Check dashboard for updates.'}), 200
 
 
-def run_simulation_and_notify(filepath, username):
+def run_simulation_and_notify(filepath, username, base_price):
     """Wrapper to run simulation, emit results, and log to blockchain."""
     with app.app_context():
         summary_payload = {
@@ -383,8 +389,9 @@ def run_simulation_and_notify(filepath, username):
         }
         try:
             # --- Run Algorithm 1: Simple Auction ---
-            print("Running Algorithm 1: Simple Auction")
-            summary = run_trading_simulation(filepath)
+            print(f"Running Algorithm with Base Price: {base_price}")
+
+            summary = run_trading_simulation(filepath, base_price=base_price)
 
             summary_payload['status'] = 'processed'
             summary_payload['summary'] = summary
